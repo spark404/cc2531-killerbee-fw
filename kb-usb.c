@@ -297,6 +297,8 @@ PROCESS_THREAD(kb_usb_process, ev, data)
   kb_event_t *p_sendpkt;
   PROCESS_BEGIN();
 
+  leds_on(LEDS_GREEN);
+
   kb_event_message = process_alloc_event();
   kb_sendpkt_message = process_alloc_event();
   ptr = 0;
@@ -331,6 +333,7 @@ PROCESS_THREAD(kb_usb_process, ev, data)
     }
   }
 
+  leds_off(LEDS_GREEN);
   PROCESS_END();
 }
 
@@ -356,7 +359,7 @@ void kb_usb_init(void)
   kb_usb_reset();
 
   /* Switch off LEDs. */
-  leds_off(LEDS_RED | LEDS_GREEN);
+  leds_off(LEDS_RED);
 
   /* Start USB task. */
   process_start(&kb_usb_process, NULL);
