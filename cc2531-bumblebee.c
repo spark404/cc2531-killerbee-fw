@@ -1,5 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "EndlessLoop"
 /*
  * Copyright (c) 2012, George Oikonomou (oikonomou@users.sourceforge.net)
  * All rights reserved.
@@ -275,4 +273,3 @@ PROCESS_THREAD(cc2531_bumlblebee_process, ev, data)
 
 /* Start both processes (main routine). */
 AUTOSTART_PROCESSES(&cc2531_bumlblebee_process, &cc2531_rf_sniffer);
-#pragma clang diagnostic pop

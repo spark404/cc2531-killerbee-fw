@@ -1,0 +1,201 @@
+diff --git a/.gitmodules b/.gitmodules
+index 308d06c43..9dba7ddd6 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -10,10 +10,6 @@
+ [submodule "cpu/cc26xx-cc13xx/lib/cc13xxware"]
+ 	path = cpu/cc26xx-cc13xx/lib/cc13xxware
+ 	url = https://github.com/contiki-os/cc13xxware.git
+-[submodule "platform/stm32nucleo-spirit1/stm32cube-lib"]
+-	path = platform/stm32nucleo-spirit1/stm32cube-lib
+-	url = https://github.com/STclab/stm32nucleo-spirit1-lib
+-
+ [submodule "tools/sensniff"]
+ 	path = tools/sensniff
+ 	url = https://github.com/g-oikonomou/sensniff.git
+diff --git a/core/sys/clock.h b/core/sys/clock.h
+index 4cbfdb223..806052373 100644
+--- a/core/sys/clock.h
++++ b/core/sys/clock.h
+@@ -138,7 +138,7 @@ void clock_delay_usec(uint16_t dt);
+  */
+ int clock_fine_max(void);
+ unsigned short clock_fine(void);
+-void clock_delay(unsigned int delay);
++// void clock_delay(unsigned int delay);
+ 
+ #endif /* CLOCK_H_ */
+ 
+diff --git a/platform/cc2530dk/contiki-main.c b/platform/cc2530dk/contiki-main.c
+index 164481512..120581ef4 100644
+--- a/platform/cc2530dk/contiki-main.c
++++ b/platform/cc2530dk/contiki-main.c
+@@ -31,10 +31,10 @@ PROCESS_NAME(viztool_process);
+ #endif
+ /*---------------------------------------------------------------------------*/
+ #if STARTUP_CONF_VERBOSE
+-#define PUTSTRING(...) putstring(__VA_ARGS__)
+-#define PUTHEX(...) puthex(__VA_ARGS__)
+-#define PUTBIN(...) putbin(__VA_ARGS__)
+-#define PUTCHAR(...) putchar(__VA_ARGS__)
++#define PUTSTRING(...) debug_putstring(__VA_ARGS__)
++#define PUTHEX(...) debug_puthex(__VA_ARGS__)
++#define PUTBIN(...) debug_putbin(__VA_ARGS__)
++#define PUTCHAR(...) debug_putchar(__VA_ARGS__)
+ #else
+ #define PUTSTRING(...)
+ #define PUTHEX(...)
+@@ -190,26 +190,26 @@ main(void) CC_NON_BANKED
+   fade(LEDS_RED);
+ 
+   PUTSTRING("##########################################\n");
+-  putstring(CONTIKI_VERSION_STRING "\n");
+-  putstring(MODEL_STRING);
++  PUTSTRING(CONTIKI_VERSION_STRING "\n");
++  PUTSTRING(MODEL_STRING);
+   switch(CHIPID) {
+   case 0xA5:
+-    putstring("cc2530");
++  PUTSTRING("cc2530");
+     break;
+   case 0xB5:
+-    putstring("cc2531");
++    PUTSTRING("cc2531");
+     break;
+   case 0x95:
+-    putstring("cc2533");
++    PUTSTRING("cc2533");
+     break;
+   case 0x8D:
+-    putstring("cc2540");
++    PUTSTRING("cc2540");
+     break;
+   }
+ 
+-  putstring("-" CC2530_FLAVOR_STRING ", ");
+-  puthex(CHIPINFO1 + 1);
+-  putstring("KB SRAM\n");
++    PUTSTRING("-" CC2530_FLAVOR_STRING ", ");
++    PUTHEX(CHIPINFO1 + 1);
++    PUTSTRING("KB SRAM\n");
+ 
+   PUTSTRING("\nSDCC Build:\n");
+ #if STARTUP_CONF_VERBOSE
+diff --git a/platform/cc2530dk/debug.c b/platform/cc2530dk/debug.c
+index 36131227a..812201233 100644
+--- a/platform/cc2530dk/debug.c
++++ b/platform/cc2530dk/debug.c
+@@ -16,32 +16,32 @@ static const char hexconv[] = "0123456789abcdef";
+ static const char binconv[] = "01";
+ /*---------------------------------------------------------------------------*/
+ void
+-putstring(char *s)
++debug_putstring(char *s)
+ {
+   while(*s) {
+-    putchar(*s++);
++      debug_putchar(*s++);
+   }
+ }
+ /*---------------------------------------------------------------------------*/
+ void
+-puthex(uint8_t c)
++debug_puthex(uint8_t c)
+ {
+-  putchar(hexconv[c >> 4]);
+-  putchar(hexconv[c & 0x0f]);
++    debug_putchar(hexconv[c >> 4]);
++    debug_putchar(hexconv[c & 0x0f]);
+ }
+ /*---------------------------------------------------------------------------*/
+ void
+-putbin(uint8_t c)
++debug_putbin(uint8_t c)
+ {
+   unsigned char i = 0x80;
+   while(i) {
+-    putchar(binconv[(c & i) != 0]);
++      debug_putchar(binconv[(c & i) != 0]);
+     i >>= 1;
+   }
+ }
+ /*---------------------------------------------------------------------------*/
+ void
+-putdec(uint8_t c)
++debug_putdec(uint8_t c)
+ {
+   uint8_t div;
+   uint8_t hassent = 0;
+@@ -50,7 +50,7 @@ putdec(uint8_t c)
+     c %= div;
+     if((disp != 0) || (hassent) || (div == 1)) {
+       hassent = 1;
+-      putchar('0' + disp);
++        debug_putchar('0' + disp);
+     }
+   }
+ }
+diff --git a/platform/cc2530dk/debug.h b/platform/cc2530dk/debug.h
+index 592965843..89fb45609 100644
+--- a/platform/cc2530dk/debug.h
++++ b/platform/cc2530dk/debug.h
+@@ -46,10 +46,10 @@
+ #include "8051def.h"
+ #include "dev/uart1.h"
+ 
+-void putchar(char c);
+-void putstring(char *s);
+-void puthex(uint8_t c);
+-void putbin(uint8_t c);
+-void putdec(uint8_t c);
++void debug_putchar(char c);
++void debug_putstring(char *s);
++void debug_puthex(uint8_t c);
++void debug_putbin(uint8_t c);
++void debug_putdec(uint8_t c);
+ 
+ #endif /* DEBUG_H_ */
+diff --git a/platform/cc2530dk/putchar.c b/platform/cc2530dk/putchar.c
+index 2f828e532..13029cdbc 100644
+--- a/platform/cc2530dk/putchar.c
++++ b/platform/cc2530dk/putchar.c
+@@ -10,7 +10,7 @@
+ #include "dev/io-arch.h"
+ /*---------------------------------------------------------------------------*/
+ void
+-putchar(char c)
++debug_putchar(char c)
+ {
+ #if SLIP_ARCH_CONF_ENABLE
+ #define SLIP_END     0300
+diff --git a/platform/cc2530dk/uip-debug.c b/platform/cc2530dk/uip-debug.c
+index 1a1660e65..ab5f4a4a6 100644
+--- a/platform/cc2530dk/uip-debug.c
++++ b/platform/cc2530dk/uip-debug.c
+@@ -51,7 +51,7 @@ uip_debug_ipaddr_print(const uip_ipaddr_t *addr)
+     a = (addr->u8[i] << 8) + addr->u8[i + 1];
+     if(a == 0 && f >= 0) {
+       if(f++ == 0) {
+-        putstring("::");
++        debug_putstring("::");
+       }
+     } else {
+       if(f > 0) {
+@@ -59,8 +59,8 @@ uip_debug_ipaddr_print(const uip_ipaddr_t *addr)
+       } else if(i > 0) {
+         putstring(":");
+       }
+-      puthex(a >> 8);
+-      puthex(a & 0xFF);
++      debug_puthex(a >> 8);
++      debug_puthex(a & 0xFF);
+     }
+   }
+ #else /* NETSTACK_CONF_WITH_IPV6 */
+diff --git a/platform/stm32nucleo-spirit1/stm32cube-lib b/platform/stm32nucleo-spirit1/stm32cube-lib
+deleted file mode 160000
+index 34e784ff3..000000000
+--- a/platform/stm32nucleo-spirit1/stm32cube-lib
++++ /dev/null
+@@ -1 +0,0 @@
+-Subproject commit 34e784ff39a5dc4da288ce696235f41b1db4bf5c
