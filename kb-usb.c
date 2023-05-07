@@ -1,5 +1,6 @@
 #include "kb-usb.h"
 #include <stdlib.h>
+#include "contiki/core/sys/process.h"
 
 static USBBuffer data_rx_urb;
 static USBBuffer data_tx_urb[MAX_TX_URB];
@@ -43,7 +44,7 @@ void kb_usb_send_bytes(uint8_t *bytes, size_t length) {
     }
 
     // Quick hack to satisfy the protocol
-    uint8_t length_buffer[] = { length & 0xff};
+    uint8_t length_buffer[] = {length & 0xff};
     append_buffer_to_fifo(length_buffer, 1);
 
     append_buffer_to_fifo(bytes, length);
@@ -202,59 +203,54 @@ static void do_work(void) {
     }
 }
 
-PROCESS(kb_usb_process,
-"Killerbee USB driver");
+PROCESS(kb_usb_process, "Killerbee USB driver");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(kb_usb_process, ev, data
-)
-{
-kb_event_t *p_sendpkt;
+) {
+    kb_event_t *p_sendpkt;
 
-PROCESS_BEGIN();
+    PROCESS_BEGIN();
 
-leds_on(LEDS_GREEN);
+    leds_on(LEDS_GREEN);
 
-kb_event_message = process_alloc_event();
-kb_sendpkt_message = process_alloc_event();
-ptr = 0;
-pkt_fifo_size = 0;
+    kb_event_message = process_alloc_event();
+    kb_sendpkt_message = process_alloc_event();
+    ptr = 0;
+    pkt_fifo_size = 0;
 
-usb_set_global_event_process(&kb_usb_process);
-usb_set_ep_event_process(EPIN, &kb_usb_process);
-usb_set_ep_event_process(EPOUT, &kb_usb_process);
+    usb_set_global_event_process(&kb_usb_process);
+    usb_set_ep_event_process(EPIN, &kb_usb_process);
+    usb_set_ep_event_process(EPOUT, &kb_usb_process);
 
-while(1) {
-PROCESS_WAIT_EVENT();
+    while (1) {
+        PROCESS_WAIT_EVENT();
 
-if(ev == PROCESS_EVENT_EXIT) {
-break;
-}
+        if (ev == PROCESS_EVENT_EXIT) {
+            break;
+        }
 
-/* Do we have a packet to send ? */
-if (ev == kb_sendpkt_message) {
-leds_on(LEDS_RED);
+        /* Do we have a packet to send ? */
+        if (ev == kb_sendpkt_message) {
+            leds_on(LEDS_RED);
 
-/* Got packet to send, send packet through USB endpoint 2 */
-p_sendpkt = (kb_event_t *) data;
-kb_usb_send_bytes(p_sendpkt
-->payload, p_sendpkt->payload_size);
+            /* Got packet to send, send packet through USB endpoint 2 */
+            p_sendpkt = (kb_event_t *) data;
+            kb_usb_send_bytes(p_sendpkt->payload, p_sendpkt->payload_size);
 
-/* Free packet resources. */
-free(p_sendpkt
-->payload);
-free(p_sendpkt);
-leds_off(LEDS_RED);
-}
+            /* Free packet resources. */
+            free(p_sendpkt->payload);
+            free(p_sendpkt);
+            leds_off(LEDS_RED);
+        }
 
-if(ev == PROCESS_EVENT_POLL) {
-do_work();
+        if (ev == PROCESS_EVENT_POLL) {
+            do_work();
+        }
+    }
 
-}}
+    leds_off(LEDS_GREEN);
 
-leds_off(LEDS_GREEN);
-
-PROCESS_END();
-
+    PROCESS_END();
 }
 
 void kb_fifo_reset(void) {
