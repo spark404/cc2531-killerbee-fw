@@ -14,20 +14,36 @@ index 308d06c43..9dba7ddd6 100644
  	path = tools/sensniff
  	url = https://github.com/g-oikonomou/sensniff.git
 diff --git a/core/sys/clock.h b/core/sys/clock.h
-index 4cbfdb223..806052373 100644
+index 4cbfdb223..c3bb45836 100644
 --- a/core/sys/clock.h
 +++ b/core/sys/clock.h
+@@ -70,7 +70,6 @@
+ #define CLOCK_H_
+ 
+ #include "contiki-conf.h"
+-
+ /**
+  * A second, measured in system clock time.
+  *
+@@ -130,6 +129,7 @@ void clock_wait(clock_time_t t);
+  *
+  * \note Interrupts could increase the delay by a variable amount.
+  */
++
+ void clock_delay_usec(uint16_t dt);
+ 
+ /**
 @@ -138,7 +138,7 @@ void clock_delay_usec(uint16_t dt);
   */
  int clock_fine_max(void);
  unsigned short clock_fine(void);
 -void clock_delay(unsigned int delay);
-+// void clock_delay(unsigned int delay);
++//void clock_delay(unsigned int delay);
  
  #endif /* CLOCK_H_ */
  
 diff --git a/platform/cc2530dk/contiki-main.c b/platform/cc2530dk/contiki-main.c
-index 164481512..120581ef4 100644
+index 164481512..336f63571 100644
 --- a/platform/cc2530dk/contiki-main.c
 +++ b/platform/cc2530dk/contiki-main.c
 @@ -31,10 +31,10 @@ PROCESS_NAME(viztool_process);
@@ -45,44 +61,61 @@ index 164481512..120581ef4 100644
  #else
  #define PUTSTRING(...)
  #define PUTHEX(...)
-@@ -190,26 +190,26 @@ main(void) CC_NON_BANKED
+@@ -82,7 +82,6 @@ fade(int l) CC_NON_BANKED
+ static void
+ set_rf_params(void) CC_NON_BANKED
+ {
+-  char i;
+   uint16_t short_addr;
+   uint8_t ext_addr[8];
+ 
+@@ -121,7 +120,7 @@ set_rf_params(void) CC_NON_BANKED
+    * Read IEEE address from flash, store in ext_addr.
+    * Invert endianness (from little to big endian)
+    */
+-  for(i = 7; i >= 0; --i) {
++  for(int i = 7; i >= 0; --i) {
+     ext_addr[i] = *macp;
+     macp++;
+   }
+@@ -190,26 +189,26 @@ main(void) CC_NON_BANKED
    fade(LEDS_RED);
  
    PUTSTRING("##########################################\n");
 -  putstring(CONTIKI_VERSION_STRING "\n");
 -  putstring(MODEL_STRING);
-+  PUTSTRING(CONTIKI_VERSION_STRING "\n");
-+  PUTSTRING(MODEL_STRING);
++  debug_putstring(CONTIKI_VERSION_STRING "\n");
++  debug_putstring(MODEL_STRING);
    switch(CHIPID) {
    case 0xA5:
 -    putstring("cc2530");
-+  PUTSTRING("cc2530");
++    debug_putstring("cc2530");
      break;
    case 0xB5:
 -    putstring("cc2531");
-+    PUTSTRING("cc2531");
++    debug_putstring("cc2531");
      break;
    case 0x95:
 -    putstring("cc2533");
-+    PUTSTRING("cc2533");
++    debug_putstring("cc2533");
      break;
    case 0x8D:
 -    putstring("cc2540");
-+    PUTSTRING("cc2540");
++    debug_putstring("cc2540");
      break;
    }
  
 -  putstring("-" CC2530_FLAVOR_STRING ", ");
 -  puthex(CHIPINFO1 + 1);
 -  putstring("KB SRAM\n");
-+    PUTSTRING("-" CC2530_FLAVOR_STRING ", ");
-+    PUTHEX(CHIPINFO1 + 1);
-+    PUTSTRING("KB SRAM\n");
++  debug_putstring("-" CC2530_FLAVOR_STRING ", ");
++  debug_puthex(CHIPINFO1 + 1);
++  debug_putstring("KB SRAM\n");
  
    PUTSTRING("\nSDCC Build:\n");
  #if STARTUP_CONF_VERBOSE
 diff --git a/platform/cc2530dk/debug.c b/platform/cc2530dk/debug.c
-index 36131227a..812201233 100644
+index 36131227a..83c716e58 100644
 --- a/platform/cc2530dk/debug.c
 +++ b/platform/cc2530dk/debug.c
 @@ -16,32 +16,32 @@ static const char hexconv[] = "0123456789abcdef";
@@ -94,7 +127,7 @@ index 36131227a..812201233 100644
  {
    while(*s) {
 -    putchar(*s++);
-+      debug_putchar(*s++);
++    debug_putchar(*s++);
    }
  }
  /*---------------------------------------------------------------------------*/
@@ -104,8 +137,8 @@ index 36131227a..812201233 100644
  {
 -  putchar(hexconv[c >> 4]);
 -  putchar(hexconv[c & 0x0f]);
-+    debug_putchar(hexconv[c >> 4]);
-+    debug_putchar(hexconv[c & 0x0f]);
++  debug_putchar(hexconv[c >> 4]);
++  debug_putchar(hexconv[c & 0x0f]);
  }
  /*---------------------------------------------------------------------------*/
  void
@@ -115,7 +148,7 @@ index 36131227a..812201233 100644
    unsigned char i = 0x80;
    while(i) {
 -    putchar(binconv[(c & i) != 0]);
-+      debug_putchar(binconv[(c & i) != 0]);
++    debug_putchar(binconv[(c & i) != 0]);
      i >>= 1;
    }
  }
@@ -131,7 +164,7 @@ index 36131227a..812201233 100644
      if((disp != 0) || (hassent) || (div == 1)) {
        hassent = 1;
 -      putchar('0' + disp);
-+        debug_putchar('0' + disp);
++      debug_putchar('0' + disp);
      }
    }
  }
@@ -155,6 +188,30 @@ index 592965843..89fb45609 100644
 +void debug_putdec(uint8_t c);
  
  #endif /* DEBUG_H_ */
+diff --git a/platform/cc2530dk/models.h b/platform/cc2530dk/models.h
+index fe396d9f5..3c1e8be75 100644
+--- a/platform/cc2530dk/models.h
++++ b/platform/cc2530dk/models.h
+@@ -77,7 +77,9 @@
+ #define CTRL_EP_SIZE	8
+ #define USB_EP1_SIZE	32
+ #define USB_EP2_SIZE	64
+-#define USB_EP3_SIZE	64
++#define USB_EP3_SIZE	128  // According to the datasheet
++#define USB_EP4_SIZE	256  // According to the datasheet
++#define USB_EP5_SIZE	512  // According to the datasheet
+ #define USB_CONF_CLASS	1 /* CDC-ACM */
+ #endif
+ 
+@@ -96,7 +98,7 @@
+ /* P0DIR and P0SEL masks */
+ #define LED2_MASK  0x01
+ #define LED1_MASK  0x02
+-#else
++#else  // MODELS_CONF_CC2531_USB_STICK
+ #define MODEL_STRING "TI SmartRF05 EB\n"
+ #define LEDS_GREEN    1
+ #define LEDS_RED      2
 diff --git a/platform/cc2530dk/putchar.c b/platform/cc2530dk/putchar.c
 index 2f828e532..13029cdbc 100644
 --- a/platform/cc2530dk/putchar.c
@@ -168,30 +225,6 @@ index 2f828e532..13029cdbc 100644
  {
  #if SLIP_ARCH_CONF_ENABLE
  #define SLIP_END     0300
-diff --git a/platform/cc2530dk/uip-debug.c b/platform/cc2530dk/uip-debug.c
-index 1a1660e65..ab5f4a4a6 100644
---- a/platform/cc2530dk/uip-debug.c
-+++ b/platform/cc2530dk/uip-debug.c
-@@ -51,7 +51,7 @@ uip_debug_ipaddr_print(const uip_ipaddr_t *addr)
-     a = (addr->u8[i] << 8) + addr->u8[i + 1];
-     if(a == 0 && f >= 0) {
-       if(f++ == 0) {
--        putstring("::");
-+        debug_putstring("::");
-       }
-     } else {
-       if(f > 0) {
-@@ -59,8 +59,8 @@ uip_debug_ipaddr_print(const uip_ipaddr_t *addr)
-       } else if(i > 0) {
-         putstring(":");
-       }
--      puthex(a >> 8);
--      puthex(a & 0xFF);
-+      debug_puthex(a >> 8);
-+      debug_puthex(a & 0xFF);
-     }
-   }
- #else /* NETSTACK_CONF_WITH_IPV6 */
 diff --git a/platform/stm32nucleo-spirit1/stm32cube-lib b/platform/stm32nucleo-spirit1/stm32cube-lib
 deleted file mode 160000
 index 34e784ff3..000000000
