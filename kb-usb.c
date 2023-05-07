@@ -37,56 +37,25 @@ static void append_buffer_to_fifo(uint8_t *buffer, size_t len) {
     }
 }
 
-void kb_usb_send_bytes(uint8_t *bytes, int length) {
-    int i, len, pkt_idx;
-
-    /* Don't send if not enabled. */
+void kb_usb_send_bytes(uint8_t *bytes, size_t length) {
     if (!enabled) {
         return;
     }
 
+    // Quick hack to satisfy the protocol
+    uint8_t length_buffer[] = { length & 0xff};
+    append_buffer_to_fifo(length_buffer, 1);
+
     append_buffer_to_fifo(bytes, length);
 
-    /* Can we send a single packet with some padding ? */
-    pkt_idx = 0;
-    while ((pkt_fifo_size >= USB_EP2_SIZE) && (pkt_idx < MAX_TX_URB)) {
-        len = USB_EP2_SIZE - 1;
-        memcpy(&tx_buffer[pkt_idx][1], PKT_FIFO, len);
-        tx_buffer[pkt_idx][0] = len;
-        data_tx_urb[pkt_idx].flags = USB_BUFFER_IN;
-        data_tx_urb[pkt_idx].flags |= USB_BUFFER_NOTIFY;
-        data_tx_urb[pkt_idx].data = tx_buffer[pkt_idx];
-        data_tx_urb[pkt_idx].left = USB_EP2_SIZE;
-        if (pkt_idx > 0)
-            data_tx_urb[pkt_idx - 1].next = &data_tx_urb[pkt_idx];
-        else
-            data_tx_urb[pkt_idx].next = NULL;
-        //usb_submit_xmit_buffer(EPIN, &data_tx_urb);
+    data_tx_urb[0].flags = USB_BUFFER_IN;
+    data_tx_urb[0].data = PKT_FIFO;
+    data_tx_urb[0].left = pkt_fifo_size;
+    data_tx_urb[0].next = NULL;
 
-        /* Chomp data. */
-        for (i = len; i < pkt_fifo_size; i++) {
-            PKT_FIFO[i - len] = PKT_FIFO[i];
-        }
-        pkt_fifo_size -= len;
-        pkt_idx++;
-    }
+    usb_submit_xmit_buffer(EPIN, data_tx_urb);
 
-    if ((pkt_fifo_size < USB_EP2_SIZE) && (pkt_idx < MAX_TX_URB)) {
-        len = pkt_fifo_size;
-        memcpy(&tx_buffer[pkt_idx][1], PKT_FIFO, len);
-        tx_buffer[pkt_idx][0] = len;
-        data_tx_urb[pkt_idx].flags = USB_BUFFER_IN;
-        data_tx_urb[pkt_idx].flags |= USB_BUFFER_NOTIFY;
-        data_tx_urb[pkt_idx].data = tx_buffer[pkt_idx];
-        data_tx_urb[pkt_idx].left = USB_EP2_SIZE;
-        data_tx_urb[pkt_idx].next = NULL;
-        if (pkt_idx > 0)
-            data_tx_urb[pkt_idx - 1].next = &data_tx_urb[pkt_idx];
-        else
-            data_tx_urb[pkt_idx].next = NULL;
-        pkt_fifo_size = 0;
-    }
-    usb_submit_xmit_buffer(EPIN, &data_tx_urb[0]);
+    pkt_fifo_size = 0;
 }
 
 /* Callback to the input handler */
@@ -150,23 +119,10 @@ static void input_handler(unsigned char c) {
     }
 }
 
-const struct usb_st_device_descriptor device_descriptor =
-        {
-                sizeof(struct usb_st_device_descriptor),
-                DEVICE,
-                0x0200,
-                0, /* Defined at interface level. */
-                0,
-                0,
-                CTRL_EP_SIZE,
-                CDC_ACM_CONF_VID,
-                CDC_ACM_CONF_PID,
-                0x0000,
-                1,
-                2,
-                0,
-                1
-        };
+const struct usb_st_device_descriptor device_descriptor = {sizeof(struct usb_st_device_descriptor), DEVICE, 0x0200,
+                                                           0, /* Defined at interface level. */
+                                                           0, 0, CTRL_EP_SIZE, CDC_ACM_CONF_VID, CDC_ACM_CONF_PID,
+                                                           0x0000, 1, 2, 0, 1};
 
 const struct configuration_st {
     struct usb_st_configuration_descriptor configuration;
@@ -174,54 +130,29 @@ const struct configuration_st {
     struct usb_st_endpoint_descriptor ep_in;
     struct usb_st_endpoint_descriptor ep_out;
 } BYTE_ALIGNED
-configuration_block =
-        {
-                /* Configuration */
-                {
-                        sizeof(configuration_block.configuration),
-                        CONFIGURATION,
-                        sizeof(configuration_block),
-                        1, /* bNumInterfaces = 1 */
-                        1, /* bConfigurationValue */
-                        0, /* iConfiguration */
-                        0x80, /* Bus powered */
-                        250 /* 250 mA */
-                },
-                {
-                        sizeof(configuration_block.data),
-                        INTERFACE,
-                        0, /* Interface number = 0 */
-                        0, /* bAlternate setting = 0 */
-                        2, /* bNumEndpoints = 2 */
-                        0xff, /* Interface class = 0xFF (vendor class specific) */
-                        0, /* bInterface subclass */
-                        0, /* bInterface protocol */
-                        0 /* iInterface */
-                },
-                {
-                        sizeof(configuration_block.ep_in),
-                        ENDPOINT,
-                        0x82,
-                        0x02,
-                        USB_EP2_SIZE,
-                        0
-                },
-                {
-                        sizeof(configuration_block.ep_out),
-                        ENDPOINT,
-                        0x03,
-                        0x02,
-                        USB_EP3_SIZE,
-                        0
-                }
-        };
+configuration_block = {
+        /* Configuration */
+        {sizeof(configuration_block.configuration), CONFIGURATION, sizeof(configuration_block), 1, /* bNumInterfaces = 1 */
+                                                                                                      1, /* bConfigurationValue */
+                                                                                                                    0, /* iConfiguration */
+                0x80, /* Bus powered */
+                250 /* 250 mA */
+        },
+        {sizeof(configuration_block.data),          INTERFACE,     0, /* Interface number = 0 */
+                                                                                                0, /* bAlternate setting = 0 */
+                                                                                                      2, /* bNumEndpoints = 2 */
+                                                                                                                    0xff, /* Interface class = 0xFF (vendor class specific) */
+                0, /* bInterface subclass */
+                0, /* bInterface protocol */
+                0 /* iInterface */
+        },
+        {sizeof(configuration_block.ep_in),         ENDPOINT,      0x82,                        0x02, USB_EP2_SIZE, 0},
+        {sizeof(configuration_block.ep_out),        ENDPOINT,      0x03,                        0x02, USB_EP3_SIZE, 0}};
 
-const struct usb_st_configuration_descriptor const *configuration_head =
-        (struct usb_st_configuration_descriptor const *) &configuration_block;
+const struct usb_st_configuration_descriptor const *configuration_head = (struct usb_st_configuration_descriptor const *) &configuration_block;
 
 
-static void
-queue_rx_urb(void) {
+static void queue_rx_urb(void) {
     data_rx_urb.flags = USB_BUFFER_PACKET_END;    /* Make sure we are getting immediately the packet. */
     data_rx_urb.flags |= USB_BUFFER_NOTIFY;
     data_rx_urb.data = usb_rx_data;
@@ -230,8 +161,7 @@ queue_rx_urb(void) {
     usb_submit_recv_buffer(EPOUT, &data_rx_urb);
 }
 
-static void
-do_work(void) {
+static void do_work(void) {
     unsigned int events;
 
     events = usb_get_global_events();
@@ -258,8 +188,7 @@ do_work(void) {
     }
 
     events = usb_get_ep_events(EPOUT);
-    if ((events & USB_EP_EVENT_NOTIFICATION)
-        && !(data_rx_urb.flags & USB_BUFFER_SUBMITTED)) {
+    if ((events & USB_EP_EVENT_NOTIFICATION) && !(data_rx_urb.flags & USB_BUFFER_SUBMITTED)) {
         if (!(data_rx_urb.flags & USB_BUFFER_FAILED)) {
             int len;
             int i;
@@ -320,8 +249,7 @@ leds_off(LEDS_RED);
 if(ev == PROCESS_EVENT_POLL) {
 do_work();
 
-}
-}
+}}
 
 leds_off(LEDS_GREEN);
 
